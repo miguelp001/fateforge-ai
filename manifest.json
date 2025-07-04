@@ -1,0 +1,10 @@
+
+{
+  "name": "FateForge AI",
+  "short_name": "FateForge",
+  "description": "A dynamic text-based role-playing game that uses Gemini as a Game Master. Create a character and embark on an adventure where the story unfolds based on your decisions, with AI-generated images illustrating key moments.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#22d3ee"
+}

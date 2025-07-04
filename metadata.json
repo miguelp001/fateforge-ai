@@ -1,0 +1,6 @@
+{
+  "name": "FateForge AI",
+  "description": "A dynamic text-based role-playing game that uses Gemini as a Game Master. Bring your own API key, create a character and embark on an adventure where the story unfolds based on your decisions, with AI-generated images illustrating key moments.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
