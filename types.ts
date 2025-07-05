@@ -154,7 +154,6 @@ export type ConcedeResolution = {
 };
 
 export interface AppSettings {
-  apiKey: string;
   imageGenerationFrequency: 'none' | 'rarely' | 'sometimes' | 'always';
   language: 'en' | 'es';
   difficulty: 'easy' | 'medium' | 'hard';

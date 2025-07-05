@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { AppSettings } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import { t } from '../i18n';
-import { ApiKeyHelpModal } from './ApiKeyHelpModal';
 
 interface SettingsModalProps {
   currentSettings: AppSettings | null;
@@ -13,18 +12,15 @@ interface SettingsModalProps {
 }
 
 function SettingsModal({ currentSettings, onSave, onClose, appError }: SettingsModalProps) {
-  const [apiKey, setApiKey] = useState(currentSettings?.apiKey || '');
   const [imageGenerationFrequency, setImageGenerationFrequency] = useState<AppSettings['imageGenerationFrequency']>(
     currentSettings?.imageGenerationFrequency || 'sometimes'
   );
   const [language, setLanguage] = useState<'en' | 'es'>(currentSettings?.language || 'en');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>(currentSettings?.difficulty || 'medium');
-  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
-
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({ apiKey, imageGenerationFrequency, language, difficulty });
+    onSave({ imageGenerationFrequency, language, difficulty });
   };
   
   const currentLang = currentSettings?.language || language;
@@ -43,34 +39,6 @@ function SettingsModal({ currentSettings, onSave, onClose, appError }: SettingsM
           <h2 id="settings-title" className="text-3xl font-bold font-serif text-cyan-400 mb-6 text-center">{t('settings', currentLang)}</h2>
           
           <form onSubmit={handleSave} className="space-y-6">
-
-            <div>
-              <label htmlFor="api-key-input" className="block text-sm font-medium text-slate-300 mb-1">
-                Google AI API Key
-              </label>
-              <div className="flex items-center gap-2">
-                  <input
-                      id="api-key-input"
-                      type="password"
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      className="flex-grow w-full bg-slate-900 border border-slate-600 rounded-md p-2 text-slate-200 focus:ring-cyan-500 focus:border-cyan-500"
-                      placeholder="Enter your API key"
-                      required
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setIsHelpModalOpen(true)}
-                    className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-700 text-slate-300 font-bold text-lg hover:bg-slate-600"
-                    aria-label="Get help with API Key"
-                  >
-                    ?
-                  </button>
-              </div>
-               {!currentSettings?.apiKey && (
-                 <p className="text-xs text-yellow-400 mt-1">{t('apiKeyRequired', currentLang)}</p>
-              )}
-            </div>
             
             <div>
               <label htmlFor="language-select" className="block text-sm font-medium text-slate-300 mb-1">
@@ -130,8 +98,13 @@ function SettingsModal({ currentSettings, onSave, onClose, appError }: SettingsM
                 {t('saveSettings', currentLang)}
               </button>
             </div>
-             {appError && <p className="text-red-400 mt-2 text-center">{appError}</p>}
           </form>
+
+          {appError && (
+            <div className="mt-4">
+              <p className="text-red-400 text-center">{appError}</p>
+            </div>
+          )}
 
           <div className="mt-6 pt-4 border-t border-slate-700/50 text-center text-xs text-slate-400">
             <p className="mb-1">Created by Miguel Pimentel</p>
@@ -151,7 +124,6 @@ function SettingsModal({ currentSettings, onSave, onClose, appError }: SettingsM
           }
         `}</style>
       </div>
-      {isHelpModalOpen && <ApiKeyHelpModal onClose={() => setIsHelpModalOpen(false)} language={language} />}
     </>
   );
 };

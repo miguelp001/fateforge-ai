@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { CharacterCreationOptions, Character, Aspect, Stunt, Skill } from '../types';
 import { DEFAULT_SKILLS, SKILL_LADDER } from '../constants';
@@ -7,6 +8,7 @@ import { SparkleIcon } from './icons/SparkleIcon';
 import { Spinner } from './ui/Spinner';
 import { t } from '../i18n';
 import { Section } from './ui/Section';
+import * as analytics from '../services/analyticsService';
 
 interface CharacterCreationProps {
   options: CharacterCreationOptions;
@@ -70,6 +72,7 @@ function CharacterCreation({ options, genre, onCharacterCreate, onBack, language
   };
   
   const handleGenerateCharacter = async () => {
+    analytics.trackEvent('generate_character_ai', { genre });
     setIsGenerating(true);
     try {
       const char = await generateFullCharacter(genre, language);
@@ -108,6 +111,7 @@ function CharacterCreation({ options, genre, onCharacterCreate, onBack, language
       setSkills(newSkills);
 
     } catch (e: any) {
+      analytics.trackEvent('error', { 'event_category': 'generate_character_ai', 'error_message': e.message });
       console.error("Failed to generate character:", e);
       const defaultMessage = "Sorry, the AI had trouble generating a character. Please try again or create one manually.";
       alert(e.message || defaultMessage);

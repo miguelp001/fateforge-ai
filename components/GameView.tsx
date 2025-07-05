@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { GameState, PlayerActionPayload, GeminiNarrativeResponse, Compel, StoryLogEntry, Consequence, HitAbsorption, TakenOutResolution, ConcedeResolution, AppSettings, Aspect } from '../types';
 import CharacterSheet from './CharacterSheet';
@@ -11,6 +12,7 @@ import { SettingsIcon } from './icons/SettingsIcon';
 import { t } from '../i18n';
 import { CharacterIcon } from './icons/CharacterIcon';
 import { ActionIcon } from './icons/ActionIcon';
+import * as analytics from '../services/analyticsService';
 
 interface GameViewProps {
   gameState: GameState;
@@ -203,6 +205,10 @@ function GameView({ gameState, setGameState, onSaveGame, onOpenSettings, setting
   const handleCompelResolution = useCallback((accepted: boolean) => {
     if (!activeCompel) return;
 
+    analytics.trackEvent(accepted ? 'accept_compel' : 'reject_compel', {
+        aspect: activeCompel.aspect
+    });
+
     const fatePointChange = accepted ? 1 : -1;
     const narration = accepted ? activeCompel.acceptNarration : activeCompel.rejectNarration;
     const logMessage = accepted 
@@ -295,16 +301,25 @@ function GameView({ gameState, setGameState, onSaveGame, onOpenSettings, setting
       }
 
       if ('takenOut' in resolution) {
+        analytics.trackEvent('player_taken_out', { 'stress_type': activeHit?.type });
         await handleSceneTransition(processPlayerTakenOut, `You have been Taken Out! All stress and consequences have been cleared.`);
         return;
       }
       
       if ('concede' in resolution) {
+        analytics.trackEvent('concede_conflict', { 'stress_type': activeHit?.type });
         await handleSceneTransition(processPlayerConcession, `You concede the conflict, clearing all stress and consequences and gaining 1 Fate Point.`, 1);
         return;
       }
 
       const { stressType, markedStressIndices, newConsequence } = resolution;
+      
+      if (newConsequence) {
+          analytics.trackEvent('take_consequence', {
+              severity: newConsequence.severity,
+              stress_type: stressType
+          });
+      }
 
       setGameState(prev => {
           if (!prev) return null;
@@ -353,6 +368,12 @@ function GameView({ gameState, setGameState, onSaveGame, onOpenSettings, setting
     }
     setIsLoading(true);
     setError(null);
+
+    analytics.trackEvent('player_action', {
+        skill: payload.skill.name,
+        has_invokes: payload.invokedAspects && payload.invokedAspects.length > 0,
+        has_target: !!payload.targetOpponentId
+    });
 
     const fullPayload: PlayerActionPayload = { ...payload, gameState };
 
@@ -449,6 +470,7 @@ function GameView({ gameState, setGameState, onSaveGame, onOpenSettings, setting
       }
 
     } catch (e: any) {
+      analytics.trackEvent('error', { 'event_category': 'player_action', 'error_message': e.message });
       console.error(e);
       const errorMessage = e.message || 'The AI encountered an error. Please try a different action.';
       setError(errorMessage);

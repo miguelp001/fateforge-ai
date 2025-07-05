@@ -118,7 +118,6 @@ export function loadSettings(): AppSettings | null {
       }
 
       return {
-        apiKey: settings.apiKey || '',
         imageGenerationFrequency: frequency,
         language: settings.language === 'es' ? 'es' : 'en',
         difficulty: validDifficulties.includes(settings.difficulty) ? settings.difficulty : 'medium',

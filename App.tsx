@@ -5,10 +5,11 @@ import GameView from './components/GameView';
 import CharacterCreation from './components/CharacterCreation';
 import SettingsModal from './components/SettingsModal';
 import { GameState, GameStatus, Character, CharacterCreationOptions, AppSettings } from './types';
-import { generateCharacterCreationOptions, createOpeningScene, configureAi } from './services/geminiService';
+import { generateCharacterCreationOptions, createOpeningScene, updateAiSettings } from './services/geminiService';
 import { saveGameState, loadGameState, hasSavedGame, clearSavedGame, saveSettings, loadSettings } from './services/storageService';
 import { Spinner } from './components/ui/Spinner';
 import { t } from './i18n';
+import * as analytics from './services/analyticsService';
 
 function App() {
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -24,41 +25,40 @@ function App() {
   const language = settings?.language || 'en';
 
   useEffect(() => {
+    // Hardcode analytics initialization
+    analytics.init('G-1S7XTJQD27');
+    
     setSaveExists(hasSavedGame());
     const loadedSettings = loadSettings();
 
     if (loadedSettings) {
         // Settings exist, apply them
         handleSaveSettings(loadedSettings, false);
-        // If API key is missing, open modal
-        if (!loadedSettings.apiKey) {
-            setIsSettingsModalOpen(true);
-        }
     } else {
-        // No settings exist (first launch), create defaults and open modal
+        // No settings exist (first launch), create defaults and save them.
+        // Go directly to the game setup screen.
         const defaultSettings: AppSettings = { 
-            apiKey: '',
             imageGenerationFrequency: 'sometimes', 
             language: 'en', 
-            difficulty: 'medium' 
+            difficulty: 'medium',
         };
-        setSettings(defaultSettings);
-        setIsSettingsModalOpen(true);
+        handleSaveSettings(defaultSettings, true);
     }
   }, []);
 
+  useEffect(() => {
+    analytics.trackPageView(`/${gameStatus.toString().toLowerCase()}`);
+  }, [gameStatus]);
+
   const handleSaveSettings = (newSettings: AppSettings, shouldSave: boolean = true) => {
     try {
-      configureAi(newSettings);
+      updateAiSettings(newSettings);
       setSettings(newSettings);
       if (shouldSave) {
           saveSettings(newSettings);
       }
-      // Only close the modal if an API key is provided, encouraging the user to enter one.
-      if (newSettings.apiKey) {
-        setIsSettingsModalOpen(false);
-        setError(null);
-      }
+      setIsSettingsModalOpen(false);
+      setError(null);
     } catch (e: any) {
         console.error("Error in settings:", e);
         setError(e.message);
@@ -66,6 +66,7 @@ function App() {
   };
 
   const handleStartNewGame = useCallback(async (genre: string) => {
+    analytics.trackEvent('start_new_game', { genre });
     clearSavedGame();
     setSaveExists(false);
 
@@ -77,8 +78,9 @@ function App() {
       setCreationOptions(options);
       setGameStatus(GameStatus.CharacterCreation);
     } catch (e: any) {
+      analytics.trackEvent('error', { 'event_category': 'character_creation_options', 'error_message': e.message });
       console.error(e);
-      setError(e.message || 'Failed to generate character options. Please check your API key in Settings and try again.');
+      setError(e.message || 'Failed to generate character options. Please ensure the backend is configured correctly and try again.');
       setGameStatus(GameStatus.Setup);
     }
   }, [language]); 
@@ -89,6 +91,7 @@ function App() {
       setGameStatus(GameStatus.Setup);
       return;
     }
+    analytics.trackEvent('create_character', { 'character_name': character.name, 'genre': selectedGenre });
     setGameStatus(GameStatus.LoadingScene);
     setError(null);
     try {
@@ -98,8 +101,9 @@ function App() {
       setSaveExists(true); // A new game has started, a save is possible
     } catch (e: any)
     {
+      analytics.trackEvent('error', { 'event_category': 'opening_scene', 'error_message': e.message });
       console.error(e);
-      setError(e.message || 'Failed to create the opening scene. Please check your API Key and try creating your character again.');
+      setError(e.message || 'Failed to create the opening scene. Please ensure the backend is configured correctly and try creating your character again.');
       setGameStatus(GameStatus.CharacterCreation);
     }
   }, [selectedGenre, settings]);
@@ -112,6 +116,7 @@ function App() {
   };
 
   const handleLoadGame = useCallback(() => {
+    analytics.trackEvent('load_game');
     setError(null);
     const loadedState = loadGameState();
     if (loadedState) {
@@ -124,6 +129,7 @@ function App() {
   }, []);
 
   const handleSaveGame = useCallback(() => {
+    analytics.trackEvent('save_game');
     if (gameState) {
       saveGameState(gameState);
     }

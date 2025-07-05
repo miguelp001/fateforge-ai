@@ -1,5 +1,4 @@
 
-
 import { DEFAULT_SKILLS, SKILL_LADDER } from './constants';
 
 let translations = {
@@ -98,7 +97,6 @@ let translations = {
     
     // SettingsModal
     settings: "Settings",
-    apiKeyRequired: "An API Key is required to play.",
     imageGenerationFrequency: "Image Generation Frequency",
     imageGenerationFrequencyDesc: "How often the AI should generate images for scenes.",
     freqNone: "None",
@@ -112,14 +110,6 @@ let translations = {
     easy: "Easy",
     medium: "Medium",
     hard: "Hard",
-
-    // ApiKeyHelpModal
-    apiKeyHelpTitle: "How to Get an API Key",
-    apiKeyHelpStep1: "Go to Google AI Studio to get your API key.",
-    apiKeyHelpStep2: "Click 'Get API key' in the top-left menu.",
-    apiKeyHelpStep3: "Click 'Create API key' to generate a new key.",
-    apiKeyHelpStep4: "Copy the generated key and paste it into the settings here.",
-    visitAiStudio: "Visit Google AI Studio",
 
     // Skill Names
     ...Object.fromEntries(DEFAULT_SKILLS.map(skill => [skill.name, skill.name])),
@@ -221,7 +211,6 @@ let translations = {
     
     // SettingsModal
     settings: "Ajustes",
-    apiKeyRequired: "Se requiere una clave API para jugar.",
     imageGenerationFrequency: "Frecuencia de Generación de Imágenes",
     imageGenerationFrequencyDesc: "Define qué tan seguido la IA debe generar imágenes para las escenas.",
     freqNone: "Ninguna",
@@ -235,15 +224,7 @@ let translations = {
     easy: "Fácil",
     medium: "Medio",
     hard: "Difícil",
-
-    // ApiKeyHelpModal
-    apiKeyHelpTitle: "Cómo Obtener una Clave API",
-    apiKeyHelpStep1: "Ve a Google AI Studio para obtener tu clave API.",
-    apiKeyHelpStep2: "Haz clic en 'Get API key' en el menú superior izquierdo.",
-    apiKeyHelpStep3: "Haz clic en 'Create API key' para generar una nueva clave.",
-    apiKeyHelpStep4: "Copia la clave generada y pégala en los ajustes aquí.",
-    visitAiStudio: "Visitar Google AI Studio",
-
+    
     // Skill Names
     'Athletics': 'Atletismo',
     'Burglary': 'Allanamiento',

@@ -9,18 +9,15 @@ FateForge AI is a single-player, text-based RPG where the story, characters, and
 
 Playing FateForge AI is a conversation between you and the AI Game Master. Here’s how to get started and navigate your adventure.
 
-### 1. Settings & API Key
+### 1. Settings
 
-**An API key is required to play.** The game uses the Google Gemini API, and you must provide your own key.
+On your first launch, the Settings panel will open, allowing you to configure your gameplay experience. You can access it anytime via the settings icon.
 
-*   **Getting a Key:** You can get a free API key from [Google AI Studio](https://aistudio.google.com/). Click "Get API key" and follow the instructions to create one.
-*   **Entering Your Key:** On first launch, the Settings menu will appear. Paste your API key into the designated field.
-*   **Other Settings:** You can also configure your gameplay experience:
-    *   **Language:** Switch between English and Spanish for the UI and all AI-generated content.
-    *   **Difficulty:** Adjusts opponent skill and the overall challenge of the game.
-    *   **Image Generation Frequency:** Control how often the AI generates images. You can choose from "None" to "Always (Every Turn)", allowing you to balance immersion with API usage and speed.
+*   **Language:** Switch between English and Spanish for the UI and all AI-generated content.
+*   **Difficulty:** Adjusts opponent skill and the overall challenge of the game.
+*   **Image Generation Frequency:** Control how often the AI generates images. You can choose from "None" to "Always (Every Turn)", allowing you to balance immersion with API usage and speed.
 
-Your settings and API key are saved locally in your browser.
+Your settings are saved locally in your browser.
 
 ### 2. Choose Your Genre
 

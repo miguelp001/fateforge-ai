@@ -3,10 +3,9 @@ import { GoogleGenAI, GenerateContentResponse, GenerateContentParameters } from 
 import { GameState, PlayerActionPayload, GeminiNarrativeResponse, CharacterCreationOptions, Character, GeneratedCharacter, Scene, AppSettings, Opponent } from "../types";
 import { SKILL_LADDER, DEFAULT_SKILLS } from "../constants";
 
-let ai: GoogleGenAI | null = null;
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 let localSettings: AppSettings = {
-    apiKey: '',
     imageGenerationFrequency: 'sometimes',
     language: 'en',
     difficulty: 'medium',
@@ -14,20 +13,8 @@ let localSettings: AppSettings = {
 
 let imageGenerationDisabledUntil = 0;
 
-export function configureAi(newSettings: AppSettings) {
+export function updateAiSettings(newSettings: AppSettings) {
     localSettings = newSettings;
-    if (newSettings.apiKey) {
-        ai = new GoogleGenAI({ apiKey: newSettings.apiKey });
-    } else {
-        ai = null; // Invalidate client if key is removed
-    }
-}
-
-function getAiClient(): GoogleGenAI {
-    if (!ai) {
-        throw new Error("API Key not configured. Please go to Settings and enter your Google AI API key.");
-    }
-    return ai;
 }
 
 export class RateLimitError extends Error {
@@ -44,7 +31,14 @@ function getLanguageInstruction(language: 'en' | 'es'): string {
     return "The entire response, including all text and JSON string values for names and descriptions, MUST be in English.";
 };
 
+function assertApiKeyIsConfigured() {
+    if (!process.env.API_KEY) {
+        throw new Error("Google AI API Key is not configured. Please set the API_KEY environment variable in your deployment settings. The application cannot function without it.");
+    }
+}
+
 export async function generateImage(prompt: string): Promise<string | undefined> {
+    assertApiKeyIsConfigured();
     const imageModelName = 'imagen-3.0-generate-002';
     const IMAGE_COOLDOWN_MS = 60000; // 1 minute
 
@@ -53,9 +47,8 @@ export async function generateImage(prompt: string): Promise<string | undefined>
     }
 
     try {
-        const client = getAiClient();
         const fullPrompt = `${prompt}, cinematic composition, dramatic lighting, high detail, masterpiece, game art, rpg art style`;
-        const response = await client.models.generateImages({
+        const response = await ai.models.generateImages({
             model: imageModelName,
             prompt: fullPrompt,
             config: { numberOfImages: 1, outputMimeType: 'image/jpeg' },
@@ -78,7 +71,7 @@ export async function generateImage(prompt: string): Promise<string | undefined>
         console.error("Error generating image:", error);
         // More descriptive error
         if (typeof error.message === 'string' && error.message.includes('API key not valid')) {
-            throw new Error("Your API key is not valid. Please check it in Settings.");
+            throw new Error("The configured API key is invalid.");
         }
         throw new Error("Failed to generate image due to an API error.");
     }
@@ -99,67 +92,95 @@ function parseJsonResponse<T>(text: string): T {
     try {
         return JSON.parse(cleanedJsonStr);
     } catch (initialError) {
-        const startIndex = cleanedJsonStr.indexOf('{');
-        const endIndex = cleanedJsonStr.lastIndexOf('}');
+        // HACK: Attempt to fix a common LLM error where it omits an opening brace `{`
+        // for an object within an array. This happens when an object is followed by
+        // a key for the next object, like `...}, "name":...` instead of `...}, {"name":...`.
+        // This regex is specific to keys named "name" as it's a common pattern in this app's
+        // data structures (Aspects, Stunts) and seems safer than a generic replacement.
+        const fixedJson = cleanedJsonStr.replace(/(},)(\s*)("name":)/g, '$1$2{$3');
 
-        if (startIndex > -1 && endIndex > -1 && endIndex > startIndex) {
-            const extractedJson = cleanedJsonStr.substring(startIndex, endIndex + 1);
-            try {
-                return JSON.parse(extractedJson);
-            } catch (extractionError) {
-                console.error("Failed to parse even the extracted JSON:", extractedJson);
-                console.error("Original string (pre-cleanup):", jsonStr);
-                console.error("Cleaned string:", cleanedJsonStr);
-                console.error("Initial parsing error:", initialError);
-                console.error("Extraction parsing error:", extractionError);
-                throw new Error("Invalid or malformed JSON response from AI model.");
+        try {
+            // Try parsing the fixed string.
+            return JSON.parse(fixedJson);
+        } catch (fixError) {
+             // The fix didn't work. Fall back to the original extraction logic.
+            const startIndex = cleanedJsonStr.indexOf('{');
+            const endIndex = cleanedJsonStr.lastIndexOf('}');
+
+            if (startIndex > -1 && endIndex > -1 && endIndex > startIndex) {
+                const extractedJson = cleanedJsonStr.substring(startIndex, endIndex + 1);
+                try {
+                    return JSON.parse(extractedJson);
+                } catch (extractionError) {
+                    console.error("Failed to parse even the extracted JSON:", extractedJson);
+                    console.error("Original string (pre-cleanup):", jsonStr);
+                    console.error("Initial parsing error:", initialError);
+                    console.error("Extraction parsing error:", extractionError);
+                    throw new Error("Invalid or malformed JSON response from AI model.");
+                }
             }
-        }
 
-        console.error("Failed to parse JSON response and could not find a valid JSON object to extract:", cleanedJsonStr);
-        console.error("Original string (pre-cleanup):", jsonStr);
-        throw new Error("Invalid JSON response from AI model.");
+            console.error("Failed to parse JSON response and could not find a valid JSON object to extract:", cleanedJsonStr);
+            console.error("Original string (pre-cleanup):", jsonStr);
+            console.error("Initial parsing error:", initialError);
+            throw new Error("Invalid JSON response from AI model.");
+        }
     }
 }
 
 
 async function callAIWithRetry<T>(
     params: Omit<GenerateContentParameters, 'model'>,
-    maxRetries: number = 5
+    maxRetries: number = 3
 ): Promise<T> {
+    assertApiKeyIsConfigured();
     const modelName = "gemini-2.5-flash-preview-04-17";
-    const client = getAiClient();
 
-    for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+    // Strengthened guard clause to prevent invalid API calls
+    if (!params || !params.contents || (typeof params.contents === 'string' && params.contents.trim() === '')) {
+        const errorMsg = "Internal Error: Attempted to call the AI with an empty or invalid prompt. This indicates a logic issue in the app.";
+        console.error(errorMsg, { params });
+        throw new Error(errorMsg);
+    }
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            const response: GenerateContentResponse = await client.models.generateContent({
+            const response: GenerateContentResponse = await ai.models.generateContent({
                 model: modelName,
                 ...params
             });
+            // This can throw an error if JSON is malformed, which will be caught below.
             return parseJsonResponse<T>(response.text);
         } catch (error: any) {
             const errorMessage = typeof error.message === 'string' ? error.message : JSON.stringify(error);
             const isRateLimitError = errorMessage.includes('429') || errorMessage.includes('RESOURCE_EXHAUSTED') || errorMessage.includes('rate limit');
 
-            if (isRateLimitError && attempt <= maxRetries) {
-                const backoffTime = Math.pow(2, attempt) * 1500 + Math.floor(Math.random() * 1000);
+            // If it's a rate limit error and not the last attempt, wait and retry.
+            if (isRateLimitError && attempt < maxRetries) {
+                const backoffTime = Math.pow(2, attempt) * 1000 + Math.floor(Math.random() * 1000);
                 console.warn(
                     `AI call attempt ${attempt} failed due to rate limiting. Retrying in ${Math.round(backoffTime / 1000)}s...`
                 );
                 await new Promise(resolve => setTimeout(resolve, backoffTime));
-            } else {
-                console.error(`AI call failed on final attempt (${attempt}) or with a non-retriable error.`, error);
-                if (isRateLimitError) {
-                    throw new Error("The AI service is currently busy or the quota has been exceeded. Please wait a moment and try again.");
-                }
-                if (errorMessage.includes('API key not valid')) {
-                    throw new Error("Your API key is not valid. Please check it in Settings.");
-                }
-                throw error;
+                continue; // Move to the next attempt
             }
+            
+            // If it's a non-retriable error OR the last attempt failed, throw a specific error.
+            if (isRateLimitError) {
+                 throw new Error("The AI service is currently busy or the quota has been exceeded. Please wait a moment and try again.");
+            }
+            if (errorMessage.includes('API key not valid')) {
+                throw new Error("The configured API key is not valid. Please ensure the backend is configured correctly.");
+            }
+            
+            // For all other errors (including JSON parsing errors), rethrow the original to preserve details.
+            console.error(`AI call failed on attempt ${attempt} of ${maxRetries}. Error:`, error);
+            throw error;
         }
     }
-    throw new Error("Exited retry loop unexpectedly.");
+    
+    // This should be unreachable if maxRetries >= 1, but serves as a fallback.
+    throw new Error("AI call failed after multiple retries.");
 }
 
 export async function generateFullCharacter(genre: string, language: 'en' | 'es'): Promise<GeneratedCharacter> {
@@ -253,6 +274,7 @@ export async function generateCharacterCreationOptions(genre: string, language: 
     3. Aspects should be flavorful and evocative for the genre.
     4. All 'description' values MUST be single-line strings without unescaped newlines or other characters that would break JSON parsing.
     5. Ensure every object in an array is separated by a comma, except for the last one. Do not include a trailing comma after the last object.
+    6. Every single object within a JSON array MUST be enclosed in curly braces {}. For example, in the "troubles" array, each trouble MUST be like {"name": "...", "description": "..."}.
     `;
 
     return callAIWithRetry<CharacterCreationOptions>({
